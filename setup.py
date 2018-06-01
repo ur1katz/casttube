@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='casttube',
-      version='0.1',
+      version='0.1.0',
       description='YouTube chromecast api',
       url='http://github.com/ur1katz/casttube',
       author='Uri Katz',
