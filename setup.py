@@ -9,4 +9,5 @@ setup(name='casttube',
       license='MIT',
       packages=['casttube'],
       zip_safe=False,
+      keywords = ['youtube', 'chromecast', 'youtube-api'],
       install_requires=['requests'])
