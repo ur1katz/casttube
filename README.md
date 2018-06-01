@@ -2,7 +2,13 @@
 
 casttube provides a way to interact with the Youtube Chromecast api.
 
-The current avilable options are:
+**Install:**
+
+```
+pip install casttube
+```
+
+**Features**
 * Play video
 * Add video to the end of the play queue
 * Play next
