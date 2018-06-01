@@ -50,7 +50,10 @@ class YouTubeSession(object):
     @property
     def in_session(self):
         """ Returns True if session params are not None."""
-        return self._gsession_id and self._lounge_token
+        if self._gsession_id and self._lounge_token:
+            return True
+        else:
+            return False
 
     def play_video(self, video_id):
         """
