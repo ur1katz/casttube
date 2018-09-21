@@ -22,9 +22,11 @@ ACTION = "__sc"
 COUNT = "count"
 
 ACTION_SET_PLAYLIST = "setPlaylist"
+ACTION_CLEAR = "clearPlaylist"
 ACTION_REMOVE = "removeVideo"
 ACTION_INSERT = "insertVideo"
 ACTION_ADD = "addVideo"
+
 
 GSESSIONID = "gsessionid"
 CVER = "CVER"
@@ -55,14 +57,15 @@ class YouTubeSession(object):
         else:
             return False
 
-    def play_video(self, video_id):
+    def play_video(self, video_id, list_id=""):
         """
         Play video(video_id) now. This ignores the current play queue order.
+        :param list_id: list id for playing playlist ...youtube.com/watch?v=VIDEO_ID&list=LIST_ID
         :param video_id: YouTube video id(http://youtube.com/watch?v=video_id)
         """
         #  We always want to start a new session here to ensure an empty queue.
         self._start_session()
-        self._initialize_queue(video_id)
+        self._initialize_queue(video_id, list_id)
 
     def add_to_queue(self, video_id):
         """
@@ -84,6 +87,9 @@ class YouTubeSession(object):
         :param video_id: YouTube video id(http://youtube.com/watch?v=video_id)
         """
         self._queue_action(video_id, ACTION_REMOVE)
+
+    def clear_playlist(self):
+        self._queue_action('', ACTION_CLEAR)
 
     def _start_session(self):
         self._get_lounge_id()
@@ -120,11 +126,11 @@ class YouTubeSession(object):
         self._sid = sid.group(1)
         self._gsession_id = gsessionid.group(1)
 
-    def _initialize_queue(self, video_id):
+    def _initialize_queue(self, video_id, list_id=""):
         """
         Initialize a queue with a video and start playing that video.
         """
-        request_data = {LIST_ID: "",
+        request_data = {LIST_ID: list_id,
                         ACTION: ACTION_SET_PLAYLIST,
                         CURRENT_TIME: "0",
                         CURRENT_INDEX: -1,

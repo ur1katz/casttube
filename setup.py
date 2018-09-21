@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='casttube',
-      version='0.1.0',
+      version='0.2.0',
       description='YouTube chromecast api',
       long_description=long_description,
       long_description_content_type="text/markdown",

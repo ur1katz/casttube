@@ -10,9 +10,11 @@ pip install casttube
 
 **Features**
 * Play video
+* Play a playlist
 * Add video to the end of the play queue
 * Play next
 * Remove video
+* Clear the entire queue
 
 ```
 from casttube import YouTubeSession
