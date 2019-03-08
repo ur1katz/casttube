@@ -1,4 +1,5 @@
 import re
+import json
 
 import requests
 
@@ -45,6 +46,7 @@ class YouTubeSession(object):
         self._screen_id = screen_id
         self._lounge_token = None
         self._gsession_id = None
+        self._queue_playlist_id = None
         self._sid = None
         self._rid = 0
         self._req_count = 0
@@ -90,6 +92,20 @@ class YouTubeSession(object):
 
     def clear_playlist(self):
         self._queue_action('', ACTION_CLEAR)
+
+    def get_session_data(self):
+        url_params = {"loungeIdToken": self._lounge_token, VER: 8, "v": 2, RID: "rpc", SID: self._sid,
+                      GSESSIONID: self._gsession_id, "TYPE": "xmlhttp", "t": 1, "AID": 5, "CI": 1}
+        url_params.update(BIND_DATA)
+        response = self._do_post(BIND_URL, data="", headers={LOUNGE_ID_HEADER: self._lounge_token},
+                                 session_request=True, params=url_params)
+        response_text = response.text
+        response_text = response_text.replace("\n", "")
+        first_bracket = response_text.find("[")
+        response_list = json.loads(response_text[first_bracket:])
+        response_list = [v for k, v in response_list]
+        return response_list
+
 
     def _start_session(self):
         self._get_lounge_id()
@@ -190,7 +206,7 @@ class YouTubeSession(object):
         else:
             headers = HEADERS
         response = requests.post(url, headers=headers, data=data, params=params)
-
+        print(response.text)
         # 404 resets the sid, session counters
         # 400 in session probably means bad sid
         # If user did a bad request (eg. remove an non-existing video from queue) bind restores the session.
