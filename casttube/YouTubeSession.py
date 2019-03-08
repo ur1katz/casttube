@@ -6,6 +6,7 @@ import requests
 YOUTUBE_BASE_URL = "https://www.youtube.com/"
 BIND_URL = YOUTUBE_BASE_URL + "api/lounge/bc/bind"
 LOUNGE_TOKEN_URL = YOUTUBE_BASE_URL + "api/lounge/pairing/get_lounge_token_batch"
+QUEUE_AJAX_URL = YOUTUBE_BASE_URL + "watch_queue_ajax"
 
 HEADERS = {"Origin": YOUTUBE_BASE_URL, "Content-Type": "application/x-www-form-urlencoded"}
 LOUNGE_ID_HEADER = "X-YouTube-LoungeId-Token"
@@ -27,6 +28,7 @@ ACTION_CLEAR = "clearPlaylist"
 ACTION_REMOVE = "removeVideo"
 ACTION_INSERT = "insertVideo"
 ACTION_ADD = "addVideo"
+ACTION_GET_QUEUE_ITEMS = "action_get_watch_queue_items"
 
 
 GSESSIONID = "gsessionid"
@@ -106,6 +108,35 @@ class YouTubeSession(object):
         response_list = [v for k, v in response_list]
         return response_list
 
+    def get_queue_videos(self):
+        session_data = self.get_session_data()
+        for v in session_data:
+            if v[0] == "nowPlaying":
+                if v[1]["listId"]:
+                    self._queue_playlist_id = v[1]["listId"]
+                    break
+        print(self._queue_playlist_id)
+        if not self._queue_playlist_id:
+            return []
+        url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": self._queue_playlist_id}
+        response = self._do_post(QUEUE_AJAX_URL, data="", headers={LOUNGE_ID_HEADER: self._lounge_token},
+                                 session_request=True, params=url_params)
+        response = response.text
+        response = response.replace('\\"', "")
+        video_list = response.split("data-index=")
+        # Remove the first item containing the html tag
+        video_list = video_list[1:]
+        queue_videos = {}
+        for video in video_list:
+            video_data = {}
+            parsed_date = re.findall(r'( [a-zA-Z0-9_-]*)=([^=]+)\s', video)
+            for i in parsed_date:
+                if i[0].strip() == "data-video-title":
+                    video_data["data-video-title"] = i[1]
+                elif i[0].strip() == "data-video-id":
+                    video_data["data-video-id"] = i[1]
+            queue_videos[int(video[0])] = video_data
+        return queue_videos
 
     def _start_session(self):
         self._get_lounge_id()
