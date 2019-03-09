@@ -14,6 +14,7 @@ REQ_PREFIX = "req{req_id}"
 
 GSESSION_ID_REGEX = '"S","(.*?)"]'
 SID_REGEX = '"c","(.*?)",\"'
+VIDEO_ID_REGEX = '([a-zA-Z0-9_-]*)data-video-id=(\w+)'
 
 CURRENT_INDEX = "_currentIndex"
 CURRENT_TIME = "_currentTime"
@@ -31,10 +32,14 @@ ACTION_ADD = "addVideo"
 ACTION_GET_QUEUE_ITEMS = "action_get_watch_queue_items"
 
 GSESSIONID = "gsessionid"
+LOUNGEIDTOKEN = "loungeIdToken"
 CVER = "CVER"
+TYPE = "TYPE"
 RID = "RID"
 SID = "SID"
 VER = "VER"
+AID = "AID"
+CI = "CI"
 
 BIND_DATA = {"device": "REMOTE_CONTROL", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "Python",
              "mdx-version": 3, "pairing_type": "cast", "app": "android-phone-13.14.55"}
@@ -47,7 +52,6 @@ class YouTubeSession(object):
         self._screen_id = screen_id
         self._lounge_token = None
         self._gsession_id = None
-        self._queue_playlist_id = None
         self._sid = None
         self._rid = 0
         self._req_count = 0
@@ -95,10 +99,14 @@ class YouTubeSession(object):
         self._queue_action('', ACTION_CLEAR)
 
     def get_session_data(self):
-        url_params = {"loungeIdToken": self._lounge_token, VER: 8, "v": 2, RID: "rpc", SID: self._sid,
-                      GSESSIONID: self._gsession_id, "TYPE": "xmlhttp", "t": 1, "AID": 5, "CI": 1}
+        """
+        Get data about the current active session using an xmlhttp request.
+        :return: List of session attributes
+        """
+        url_params = {LOUNGEIDTOKEN: self._lounge_token, VER: 8, "v": 2, RID: "rpc", SID: self._sid,
+                      GSESSIONID: self._gsession_id, TYPE: "xmlhttp", "t": 1, AID: 5, CI: 1}
         url_params.update(BIND_DATA)
-        response = self._do_post(BIND_URL, data="", headers={LOUNGE_ID_HEADER: self._lounge_token},
+        response = self._do_post(BIND_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
                                  session_request=True, params=url_params)
         response_text = response.text
         response_text = response_text.replace("\n", "")
@@ -108,16 +116,15 @@ class YouTubeSession(object):
         return response_list
 
     def get_queue_videos(self):
-        session_data = self.get_session_data()
-        for v in session_data:
-            if v[0] == "nowPlaying":
-                if v[1]["listId"]:
-                    self._queue_playlist_id = v[1]["listId"]
-                    break
-        if not self._queue_playlist_id:
-            return []
-        url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": self._queue_playlist_id}
-        response = self._do_post(QUEUE_AJAX_URL, data="", headers={LOUNGE_ID_HEADER: self._lounge_token},
+        """
+        Get the video id's in currently in the queue.
+        :return: index, video id or {} if no playlist id is found
+        """
+        queue_playlist_id = self.get_queue_playlist_id()
+        if not queue_playlist_id:
+            return {}
+        url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": queue_playlist_id}
+        response = self._do_post(QUEUE_AJAX_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
                                  session_request=False, params=url_params)
         response = response.text
         response = response.replace('\\"', "")
@@ -125,15 +132,25 @@ class YouTubeSession(object):
         # Remove the first item containing the html tag
         video_list = video_list[1:]
         queue_videos = {}
-        # video_title_regex = '([a-zA-Z0-9_-]*)data-video-title=([^=]+)\s'
-        video_id_regex = '([a-zA-Z0-9_-]*)data-video-id=(\w+)'
         for video in video_list:
-            video_id = re.search(video_id_regex, video)
-            video_data = {"data-video-id": video_id.group(2)}
-            queue_videos[int(video[0])] = video_data
+            video_id = re.search(VIDEO_ID_REGEX, video)
+            # We split by data-index so video[0] is the video index value
+            queue_videos[int(video[0])] = video_id.group(2)
         return queue_videos
 
-    def _start_session(self):   
+    def get_queue_playlist_id(self):
+        """
+        Get the current queue playlist id.
+        :return: queue playlist id or None
+        """
+        session_data = self.get_session_data()
+        for v in session_data:
+            if v[0] == "nowPlaying":
+                if v[1]["listId"]:
+                    return v[1]["listId"]
+        return None
+
+    def _start_session(self):
         self._get_lounge_id()
         self._bind()
 
@@ -214,7 +231,7 @@ class YouTubeSession(object):
         req_count = REQ_PREFIX.format(req_id=self._req_count)
         return {req_count + k if k.startswith("_") else k: v for k, v in param_dict.items()}
 
-    def _do_post(self, url, data, params=None, headers=None, session_request=False):
+    def _do_post(self, url, data=None, params=None, headers=None, session_request=False):
         """
         Calls requests.post with custom headers,
          increments RID(request id) on every post.
