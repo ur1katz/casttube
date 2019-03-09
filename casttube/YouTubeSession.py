@@ -30,7 +30,6 @@ ACTION_INSERT = "insertVideo"
 ACTION_ADD = "addVideo"
 ACTION_GET_QUEUE_ITEMS = "action_get_watch_queue_items"
 
-
 GSESSIONID = "gsessionid"
 CVER = "CVER"
 RID = "RID"
@@ -115,30 +114,26 @@ class YouTubeSession(object):
                 if v[1]["listId"]:
                     self._queue_playlist_id = v[1]["listId"]
                     break
-        print(self._queue_playlist_id)
         if not self._queue_playlist_id:
             return []
         url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": self._queue_playlist_id}
         response = self._do_post(QUEUE_AJAX_URL, data="", headers={LOUNGE_ID_HEADER: self._lounge_token},
-                                 session_request=True, params=url_params)
+                                 session_request=False, params=url_params)
         response = response.text
         response = response.replace('\\"', "")
         video_list = response.split("data-index=")
         # Remove the first item containing the html tag
         video_list = video_list[1:]
         queue_videos = {}
+        # video_title_regex = '([a-zA-Z0-9_-]*)data-video-title=([^=]+)\s'
+        video_id_regex = '([a-zA-Z0-9_-]*)data-video-id=(\w+)'
         for video in video_list:
-            video_data = {}
-            parsed_date = re.findall(r'( [a-zA-Z0-9_-]*)=([^=]+)\s', video)
-            for i in parsed_date:
-                if i[0].strip() == "data-video-title":
-                    video_data["data-video-title"] = i[1]
-                elif i[0].strip() == "data-video-id":
-                    video_data["data-video-id"] = i[1]
+            video_id = re.search(video_id_regex, video)
+            video_data = {"data-video-id": video_id.group(2)}
             queue_videos[int(video[0])] = video_data
         return queue_videos
 
-    def _start_session(self):
+    def _start_session(self):   
         self._get_lounge_id()
         self._bind()
 
@@ -237,7 +232,6 @@ class YouTubeSession(object):
         else:
             headers = HEADERS
         response = requests.post(url, headers=headers, data=data, params=params)
-        print(response.text)
         # 404 resets the sid, session counters
         # 400 in session probably means bad sid
         # If user did a bad request (eg. remove an non-existing video from queue) bind restores the session.
