@@ -15,6 +15,9 @@ REQ_PREFIX = "req{req_id}"
 GSESSION_ID_REGEX = '"S","(.*?)"]'
 SID_REGEX = '"c","(.*?)",\"'
 VIDEO_ID_REGEX = '([a-zA-Z0-9_-]*)data-video-id=(\w+)'
+VIDEO_TITLE_REGEX = '([a-zA-Z0-9_-]*)(data-video-title=|yt-ui-ellipsis yt-ui-ellipsis-2\\\\u003e)'\
+                            '(.+?(?=( data-(.+?)= |\\\\u003)))'
+VIDEO_USER_REGEX = '([a-zA-Z0-9_-]*)(data-video-username= |video-uploader-byline\\\\u003e\\\\nby)(.+?(?=(\\\\n)))'
 
 CURRENT_INDEX = "_currentIndex"
 CURRENT_TIME = "_currentTime"
@@ -134,8 +137,11 @@ class YouTubeSession(object):
         queue_videos = {}
         for video in video_list:
             video_id = re.search(VIDEO_ID_REGEX, video)
+            video_title = re.search(VIDEO_TITLE_REGEX, video)
+            video_username = re.search(VIDEO_USER_REGEX, video)
             # We split by data-index so video[0] is the video index value
-            queue_videos[int(video[0])] = video_id.group(2)
+            queue_videos[int(video[0])] = {"ID": video_id.group(2), "Title": video_title.group(3),
+                                           "Username": video_username.group(3)}
         return queue_videos
 
     def get_queue_playlist_id(self):
