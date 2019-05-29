@@ -1,5 +1,6 @@
 import re
 import json
+from html.parser import HTMLParser
 
 import requests
 
@@ -12,12 +13,9 @@ HEADERS = {"Origin": YOUTUBE_BASE_URL, "Content-Type": "application/x-www-form-u
 LOUNGE_ID_HEADER = "X-YouTube-LoungeId-Token"
 REQ_PREFIX = "req{req_id}"
 
+WATCH_QUEUE_ITEM_CLASS = 'yt-uix-scroller-scroll-unit watch-queue-item'
 GSESSION_ID_REGEX = '"S","(.*?)"]'
 SID_REGEX = '"c","(.*?)",\"'
-VIDEO_ID_REGEX = '([a-zA-Z0-9_-]*)data-video-id=(\w+)'
-VIDEO_TITLE_REGEX = '([a-zA-Z0-9_-]*)(data-video-title=|yt-ui-ellipsis yt-ui-ellipsis-2\\\\u003e)'\
-                            '(.+?(?=( data-(.+?)= |\\\\u003)))'
-VIDEO_USER_REGEX = '([a-zA-Z0-9_-]*)(data-video-username= |video-uploader-byline\\\\u003e\\\\nby)(.+?(?=(\\\\n)))'
 
 CURRENT_INDEX = "_currentIndex"
 CURRENT_TIME = "_currentTime"
@@ -46,6 +44,19 @@ CI = "CI"
 
 BIND_DATA = {"device": "REMOTE_CONTROL", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "Python",
              "mdx-version": 3, "pairing_type": "cast", "app": "android-phone-13.14.55"}
+
+
+class QueueHTMLParser(HTMLParser):
+    def __init__(self):
+        self.queue_items = []
+        super().__init__()
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "li":
+            attributes = dict((x, y) for x, y in attrs)
+            if 'class' in attributes.keys():
+                if attributes['class'] == WATCH_QUEUE_ITEM_CLASS:
+                    self.queue_items.append(attributes)
 
 
 class YouTubeSession(object):
@@ -113,36 +124,9 @@ class YouTubeSession(object):
                                  session_request=True, params=url_params)
         response_text = response.text
         response_text = response_text.replace("\n", "")
-        first_bracket = response_text.find("[")
-        response_list = json.loads(response_text[first_bracket:])
+        response_list = json.loads(response_text[response_text.find("["):])
         response_list = [v for k, v in response_list]
         return response_list
-
-    def get_queue_videos(self):
-        """
-        Get the video id's in currently in the queue.
-        :return: index, video id or {} if no playlist id is found
-        """
-        queue_playlist_id = self.get_queue_playlist_id()
-        if not queue_playlist_id:
-            return {}
-        url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": queue_playlist_id}
-        response = self._do_post(QUEUE_AJAX_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
-                                 session_request=False, params=url_params)
-        response = response.text
-        response = response.replace('\\"', "")
-        video_list = response.split("data-index=")
-        # Remove the first item containing the html tag
-        video_list = video_list[1:]
-        queue_videos = {}
-        for video in video_list:
-            video_id = re.search(VIDEO_ID_REGEX, video)
-            video_title = re.search(VIDEO_TITLE_REGEX, video)
-            video_username = re.search(VIDEO_USER_REGEX, video)
-            # We split by data-index so video[0] is the video index value
-            queue_videos[int(video[0])] = {"ID": video_id.group(2), "Title": video_title.group(3),
-                                           "Username": video_username.group(3)}
-        return queue_videos
 
     def get_queue_playlist_id(self):
         """
@@ -155,6 +139,21 @@ class YouTubeSession(object):
                 if v[1]["listId"]:
                     return v[1]["listId"]
         return None
+
+    def get_queue_videos(self):
+        """
+        Get the video id's in currently in the queue.
+        :return: index, video id or {} if no playlist id is found
+        """
+        queue_playlist_id = self.get_queue_playlist_id()
+        if not queue_playlist_id:
+            return {}
+        url_params = {ACTION_GET_QUEUE_ITEMS: 1, "list": queue_playlist_id}
+        response = self._do_post(QUEUE_AJAX_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
+                                 session_request=False, params=url_params)
+        parser = QueueHTMLParser()
+        parser.feed(response.json()['html'])
+        return parser.queue_items
 
     def _start_session(self):
         self._get_lounge_id()
