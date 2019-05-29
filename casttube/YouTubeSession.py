@@ -142,8 +142,8 @@ class YouTubeSession(object):
 
     def get_queue_videos(self):
         """
-        Get the video id's in currently in the queue.
-        :return: index, video id or {} if no playlist id is found
+        Get the video id, video title and uploader username for videos currently in the queue.
+        :return: index, video id, title, username or {} if no active playlist id is found for the session
         """
         queue_playlist_id = self.get_queue_playlist_id()
         if not queue_playlist_id:
