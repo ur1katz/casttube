@@ -41,13 +41,15 @@ BIND_DATA = {"device": "REMOTE_CONTROL", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa", "na
 class YouTubeSession(object):
     """ The main logic to interact with YouTube cast api."""
 
-    def __init__(self, screen_id):
+    def __init__(self, screen_id, cookies=None):
         self._screen_id = screen_id
         self._lounge_token = None
         self._gsession_id = None
         self._sid = None
+        self._cookies = cookies
         self._rid = 0
         self._req_count = 0
+        self._bind_data = BIND_DATA
 
     @property
     def in_session(self):
@@ -118,8 +120,8 @@ class YouTubeSession(object):
 
         url_params = {RID: self._rid, VER: 8, CVER: 1}
         headers = {LOUNGE_ID_HEADER: self._lounge_token}
-        response = self._do_post(BIND_URL, data=BIND_DATA, headers=headers,
-                                 params=url_params)
+        response = self._do_post(BIND_URL, data=self._bind_data, headers=headers,
+                                 params=url_params, cookies=self._cookies)
         content = str(response.content)
         sid = re.search(SID_REGEX, content)
         gsessionid = re.search(GSESSION_ID_REGEX, content)
@@ -132,7 +134,7 @@ class YouTubeSession(object):
         """
         request_data = {LIST_ID: list_id,
                         ACTION: ACTION_SET_PLAYLIST,
-                        CURRENT_TIME: "0",
+                        CURRENT_TIME: -1,
                         CURRENT_INDEX: -1,
                         AUDIO_ONLY: "false",
                         VIDEO_ID: video_id,
@@ -141,8 +143,8 @@ class YouTubeSession(object):
         request_data = self._format_session_params(request_data)
         url_params = {SID: self._sid, GSESSIONID: self._gsession_id,
                       RID: self._rid, VER: 8, CVER: 1}
-        self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
-                      session_request=True, params=url_params)
+        res = self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
+                      session_request=True, params=url_params, cookies=self._cookies)
 
     def _queue_action(self, video_id, action):
         """
@@ -166,13 +168,13 @@ class YouTubeSession(object):
         request_data = self._format_session_params(request_data)
         url_params = {SID: self._sid, GSESSIONID: self._gsession_id, RID: self._rid, VER: 8, CVER: 1}
         self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
-                      session_request=True, params=url_params)
+                      session_request=True, params=url_params, cookies=self._cookies)
 
     def _format_session_params(self, param_dict):
         req_count = REQ_PREFIX.format(req_id=self._req_count)
         return {req_count + k if k.startswith("_") else k: v for k, v in param_dict.items()}
 
-    def _do_post(self, url, data, params=None, headers=None, session_request=False):
+    def _do_post(self, url, data, params=None, headers=None, cookies=None, session_request=False):
         """
         Calls requests.post with custom headers,
          increments RID(request id) on every post.
@@ -189,7 +191,7 @@ class YouTubeSession(object):
             headers = dict(**dict(HEADERS, **headers))
         else:
             headers = HEADERS
-        response = requests.post(url, headers=headers, data=data, params=params)
+        response = requests.post(url, headers=headers, data=data, params=params, cookies=cookies)
 
         # 404 resets the sid, session counters
         # 400 in session probably means bad sid
