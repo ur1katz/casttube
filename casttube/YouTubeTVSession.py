@@ -4,7 +4,7 @@ from .YouTubeSession import BIND_DATA
 
 YOUTUBE_BASE_URL = "https://tv.youtube.com/"
 
-BIND_DATA.update({"theme": "up"})
+BIND_DATA = {**BIND_DATA, **{"theme": "up"}}
 
 class YouTubeTVSession(YouTubeSession):
     """ The main logic to interact with YouTube cast api."""
