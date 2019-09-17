@@ -1,9 +1,10 @@
 from . import YouTubeSession
 
+from .YouTubeSession import BIND_DATA
+
 YOUTUBE_BASE_URL = "https://tv.youtube.com/"
 
-BIND_DATA = {"device": "REMOTE_CONTROL", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "Python",
-             "mdx-version": 3, "pairing_type": "cast", "app": "android-phone-13.14.55", "theme": "up"}
+BIND_DATA.update({"theme": "up"})
 
 class YouTubeTVSession(YouTubeSession):
     """ The main logic to interact with YouTube cast api."""

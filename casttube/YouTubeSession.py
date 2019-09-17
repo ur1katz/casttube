@@ -143,7 +143,7 @@ class YouTubeSession(object):
         request_data = self._format_session_params(request_data)
         url_params = {SID: self._sid, GSESSIONID: self._gsession_id,
                       RID: self._rid, VER: 8, CVER: 1}
-        res = self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
+        self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
                       session_request=True, params=url_params, cookies=self._cookies)
 
     def _queue_action(self, video_id, action):
