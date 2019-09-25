@@ -41,13 +41,15 @@ BIND_DATA = {"device": "REMOTE_CONTROL", "id": "aaaaaaaaaaaaaaaaaaaaaaaaaa", "na
 class YouTubeSession(object):
     """ The main logic to interact with YouTube cast api."""
 
-    def __init__(self, screen_id):
+    def __init__(self, screen_id, request_handler=requests):
         self._screen_id = screen_id
         self._lounge_token = None
         self._gsession_id = None
         self._sid = None
+        self._request_handler = request_handler
         self._rid = 0
         self._req_count = 0
+        self._bind_data = BIND_DATA
 
     @property
     def in_session(self):
@@ -118,7 +120,7 @@ class YouTubeSession(object):
 
         url_params = {RID: self._rid, VER: 8, CVER: 1}
         headers = {LOUNGE_ID_HEADER: self._lounge_token}
-        response = self._do_post(BIND_URL, data=BIND_DATA, headers=headers,
+        response = self._do_post(BIND_URL, data=self._bind_data, headers=headers,
                                  params=url_params)
         content = str(response.content)
         sid = re.search(SID_REGEX, content)
@@ -132,7 +134,7 @@ class YouTubeSession(object):
         """
         request_data = {LIST_ID: list_id,
                         ACTION: ACTION_SET_PLAYLIST,
-                        CURRENT_TIME: "0",
+                        CURRENT_TIME: -1,
                         CURRENT_INDEX: -1,
                         AUDIO_ONLY: "false",
                         VIDEO_ID: video_id,
@@ -189,7 +191,7 @@ class YouTubeSession(object):
             headers = dict(**dict(HEADERS, **headers))
         else:
             headers = HEADERS
-        response = requests.post(url, headers=headers, data=data, params=params)
+        response = self._request_handler.post(url, headers=headers, data=data, params=params)
 
         # 404 resets the sid, session counters
         # 400 in session probably means bad sid
