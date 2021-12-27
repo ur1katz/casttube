@@ -212,8 +212,8 @@ class YouTubeSession(object):
         :return: queue playlist id or None
         """
         session_data = self.get_session_data()
-        for v in session_data:
-            print(f"Session message: {v}")
+        for v in reversed(session_data):
+            # For each message, most recent first
             if v[0] == "nowPlaying":
                 if v[1]["listId"]:
                     return v[1]["listId"]
