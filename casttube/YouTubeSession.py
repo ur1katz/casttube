@@ -32,6 +32,8 @@ ACTION_REMOVE = "removeVideo"
 ACTION_INSERT = "insertVideo"
 ACTION_ADD = "addVideo"
 ACTION_GET_QUEUE_ITEMS = "action_get_watch_queue_items"
+ACTION_PAUSE = "pause"
+ACTION_PLAY = "play"
 
 GSESSIONID = "gsessionid"
 LOUNGEIDTOKEN = "loungeIdToken"
@@ -118,6 +120,12 @@ class YouTubeSession(object):
     def clear_playlist(self):
         self._queue_action('', ACTION_CLEAR)
 
+    def pause(self):
+        self._queue_action('', ACTION_PAUSE)
+
+    def play(self):
+        self._queue_action('', ACTION_PLAY)
+
     def _parse_length_prefixed_jsons(self, data):
         """
         Takes a string like this:
@@ -145,7 +153,7 @@ class YouTubeSession(object):
 
             # Take the next that many characters
             start_cursor = end_cursor
-            end_cursor += result_length
+            end_cursor += result_length + 1
             json_result = data[start_cursor:end_cursor]
 
             # Parse that as JSON
