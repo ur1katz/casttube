@@ -121,9 +121,15 @@ class YouTubeSession(object):
         self._queue_action('', ACTION_CLEAR)
 
     def pause(self):
+        """
+        Pause the playback of the current video.
+        """
         self._queue_action('', ACTION_PAUSE)
 
     def play(self):
+        """
+        Resume playback of a paused video.
+        """
         self._queue_action('', ACTION_PLAY)
 
     def _parse_length_prefixed_jsons(self, data):
@@ -199,20 +205,22 @@ class YouTubeSession(object):
         # numbers?) and log in the event log.
         for item in response_items:
             for message_carrier in item:
-                # Should have a number and then the message
-                if len(message_carrier) > 1:
-                    message = message_carrier[1]
-                    # It has a string name
-                    message_name = message[0]
-                    if len(message) > 1:
-                        # It has a body
-                        message_body = message[1]
-                    else:
-                        # No body
-                        message_body = {}
-                    reformatted_message = (message_name, message_body)
-                    print(f"Observed event: {reformatted_message}")
-                    self._event_log.append(reformatted_message)
+                # Sometimes these are pure integers, sometimes they are pair
+                # lists of integers and messages
+                if isinstance(message_carrier, list):
+                    # Should have a number and then the message
+                    if len(message_carrier) > 1:
+                        message = message_carrier[1]
+                        # It has a string name
+                        message_name = message[0]
+                        if len(message) > 1:
+                            # It has a body
+                            message_body = message[1]
+                        else:
+                            # No body
+                            message_body = {}
+                        reformatted_message = (message_name, message_body)
+                        self._event_log.append(reformatted_message)
 
     def get_queue_playlist_id(self):
         """
