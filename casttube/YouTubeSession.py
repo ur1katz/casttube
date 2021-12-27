@@ -1,4 +1,5 @@
 import re
+import string
 import json
 from html.parser import HTMLParser
 
@@ -113,6 +114,44 @@ class YouTubeSession(object):
     def clear_playlist(self):
         self._queue_action('', ACTION_CLEAR)
 
+    def _parse_length_prefixed_jsons(self, data):
+        """
+        Takes a string like this:
+
+        16
+        [[6,["noop"]]
+        ]
+        77
+        [[7,["onHasPreviousNextChanged",{"hasPrevious":"true","hasNext":"false"}]]
+        ]
+
+        Returns something like this as Python objects:
+        [[[6, ["noop"]]], [[7, ["onHasPreviousNextChanged", {"hasPrevious": "true", "hasNext": "false"}]]]]
+        """
+
+        results = []
+        start_cursor = 0
+        end_cursor = 0
+
+        while len(data) > end_cursor:
+            # Parse the length
+            while len(data) > end_cursor and data[end_cursor] in string.digits:
+                end_cursor += 1
+            result_length = int(data[start_cursor:end_cursor])
+
+            # Take the next that many characters
+            start_cursor = end_cursor
+            end_cursor += result_length
+            json_result = data[start_cursor:end_cursor]
+
+            # Parse that as JSON
+            parsed_result = json.loads(json_result)
+            results.append(parsed_result)
+            end_cursor += 1
+            start_cursor = end_cursor
+        return results
+
+
     def get_session_data(self):
         """
         Get data about the current active session using an xmlhttp request.
@@ -124,9 +163,34 @@ class YouTubeSession(object):
         response = self._do_post(BIND_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
                                  session_request=True, params=url_params)
         response_text = response.text
-        response_text = response_text.replace("\n", "")
-        response_list = json.loads(response_text[response_text.find("["):])
-        response_list = [v for k, v in response_list]
+        # This is length-prefixed JSON strings, something like:
+        #16
+        #[[6,["noop"]]
+        #]
+        #77
+        #[[7,["onHasPreviousNextChanged",{"hasPrevious":"true","hasNext":"false"}]]
+        #]
+        # Parse to a list of parsed JSON objects, which will be arrays of
+        # single arrays of number (meaning what?) and then actual message.
+        response_items = self._parse_length_prefixed_jsons(response_text)
+        # Reformat so it's a list of pairs of string message type, and dict
+        # message body. Discard the enclosing per-message numbers (sequence numbers?)
+        response_list = []
+        for item in response_items:
+            for message_carrier in item:
+                # Should have a number and then the message
+                if len(message_carrier) > 1:
+                    message = message_carrier[1]
+                    # It has a string name
+                    message_name = message[0]
+                    if len(message) > 1:
+                        # It has a body
+                        message_body = message[1]
+                    else:
+                        # No body
+                        message_body = {}
+                    reformatted_message = (message_name, message_body)
+                    response_list.append(reformatted_message)
         return response_list
 
     def get_queue_playlist_id(self):
@@ -209,13 +273,14 @@ class YouTubeSession(object):
         self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
                       session_request=True, params=url_params)
 
+
     def _queue_action(self, video_id, action):
         """
         Sends actions for an established queue.
         :param video_id: id to perform the action on
         :param action: the action to perform
         """
-        # If nothing is playing actions will work but won"t affect the queue.
+        # If nothing is playing actions will work but won't affect the queue.
         # This is for binding existing sessions
         if not self.in_session:
             self._start_session()
@@ -265,3 +330,4 @@ class YouTubeSession(object):
             self._req_count += 1
         self._rid += 1
         return response
+
