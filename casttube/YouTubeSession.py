@@ -70,6 +70,10 @@ class YouTubeSession(object):
         self._sid = None
         self._rid = 0
         self._req_count = 0
+        # Every call to BIND_URL can return some number of events.
+        # We won't be able to poll them again when we want them, so we store the log here and consult it when we want to answer questions about session state.
+        # This holds a list of pairs of (string event name, dict event data body)
+        self._event_log = []
 
     @property
     def in_session(self):
@@ -162,7 +166,16 @@ class YouTubeSession(object):
         url_params.update(BIND_DATA)
         response = self._do_post(BIND_URL, headers={LOUNGE_ID_HEADER: self._lounge_token},
                                  session_request=True, params=url_params)
-        response_text = response.text
+        self._record_events(response.text)
+        # Just give back the whole log
+        return self._event_log
+
+    def _record_events(self, response_text):
+        """
+        Given the text of a response to a call to BIND_URL, parse out all the
+        events and record them in our session event log.
+        """
+
         # This is length-prefixed JSON strings, something like:
         #16
         #[[6,["noop"]]
@@ -173,9 +186,9 @@ class YouTubeSession(object):
         # Parse to a list of parsed JSON objects, which will be arrays of
         # single arrays of number (meaning what?) and then actual message.
         response_items = self._parse_length_prefixed_jsons(response_text)
-        # Reformat so it's a list of pairs of string message type, and dict
-        # message body. Discard the enclosing per-message numbers (sequence numbers?)
-        response_list = []
+        # Reformat so it's pairs of string message type, and dict
+        # message body. Discard the enclosing per-message numbers (sequence
+        # numbers?) and log in the event log.
         for item in response_items:
             for message_carrier in item:
                 # Should have a number and then the message
@@ -190,8 +203,8 @@ class YouTubeSession(object):
                         # No body
                         message_body = {}
                     reformatted_message = (message_name, message_body)
-                    response_list.append(reformatted_message)
-        return response_list
+                    print(f"Observed event: {reformatted_message}")
+                    self._event_log.append(reformatted_message)
 
     def get_queue_playlist_id(self):
         """
@@ -200,6 +213,7 @@ class YouTubeSession(object):
         """
         session_data = self.get_session_data()
         for v in session_data:
+            print(f"Session message: {v}")
             if v[0] == "nowPlaying":
                 if v[1]["listId"]:
                     return v[1]["listId"]
@@ -255,6 +269,10 @@ class YouTubeSession(object):
         self._sid = sid.group(1)
         self._gsession_id = gsessionid.group(1)
 
+        # Now start a new event log for the session, and parse the response as events
+        self._event_log = []
+        self._record_events(response.text)
+
     def _initialize_queue(self, video_id, list_id="", start_time="0"):
         """
         Initialize a queue with a video and start playing that video.
@@ -270,9 +288,9 @@ class YouTubeSession(object):
         request_data = self._format_session_params(request_data)
         url_params = {SID: self._sid, GSESSIONID: self._gsession_id,
                       RID: self._rid, VER: 8, CVER: 1}
-        self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
-                      session_request=True, params=url_params)
-
+        response = self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
+                                 session_request=True, params=url_params)
+        self._record_events(response.text)
 
     def _queue_action(self, video_id, action):
         """
@@ -295,9 +313,10 @@ class YouTubeSession(object):
 
         request_data = self._format_session_params(request_data)
         url_params = {SID: self._sid, GSESSIONID: self._gsession_id, RID: self._rid, VER: 8, CVER: 1}
-        self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
-                      session_request=True, params=url_params)
-
+        response = self._do_post(BIND_URL, data=request_data, headers={LOUNGE_ID_HEADER: self._lounge_token},
+                                 session_request=True, params=url_params)
+        self._record_events(response.text)
+        
     def _format_session_params(self, param_dict):
         req_count = REQ_PREFIX.format(req_id=self._req_count)
         return {req_count + k if k.startswith("_") else k: v for k, v in param_dict.items()}
