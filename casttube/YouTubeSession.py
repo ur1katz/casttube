@@ -11,6 +11,7 @@ QUEUE_AJAX_URL = YOUTUBE_BASE_URL + "watch_queue_ajax"
 
 HEADERS = {"Origin": YOUTUBE_BASE_URL, "Content-Type": "application/x-www-form-urlencoded"}
 LOUNGE_ID_HEADER = "X-YouTube-LoungeId-Token"
+LEGNTH_HEADER = "Content-Length"
 REQ_PREFIX = "req{req_id}"
 
 WATCH_QUEUE_ITEM_CLASS = 'yt-uix-scroller-scroll-unit watch-queue-item'
@@ -254,6 +255,12 @@ class YouTubeSession(object):
             headers = dict(**dict(HEADERS, **headers))
         else:
             headers = HEADERS
+
+        if LENGTH_HEADER not in headers:
+            dump = json.dumps(data)
+            length = len(dump)
+            headers[LENGTH_HEADER] = str(length)
+    
         response = requests.post(url, headers=headers, data=data, params=params)
         # 404 resets the sid, session counters
         # 400 in session probably means bad sid
